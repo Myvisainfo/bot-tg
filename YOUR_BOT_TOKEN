@@ -1,0 +1,59 @@
+<?php
+
+// Установите зависимости с помощью composer: composer require telegram-bot/api
+require 'vendor/autoload.php';
+
+use Telegram\Bot\Api;
+
+// Замените на свой токен бота
+$token = 'YOUR_BOT_TOKEN';
+
+// Замените на идентификатор вашего канала
+$channelUsername = '@your_channel_username';
+
+$telegram = new Api($token);
+
+$update = $telegram->getWebhookUpdate();
+
+$message = $update->getMessage();
+$chatId = $message->getChat()->getId();
+$text = $message->getText();
+
+if (strpos($text, '/start') === 0) {
+    $telegram->sendMessage([
+        'chat_id' => $chatId,
+        'text' => 'Привет! Этот бот ищет сообщения по ключевым словам в вашем канале.',
+    ]);
+} elseif (strpos($text, '/search') === 0) {
+    $keywords = explode(' ', $text, 2);
+    if (isset($keywords[1])) {
+        $messages = $telegram->getChatHistory([
+            'chat_id' => $channelUsername,
+            'text' => $keywords[1],
+        ]);
+
+        if ($messages) {
+            $links = array_map(
+                function ($message) use ($channelUsername) {
+                    return "https://t.me/{$channelUsername}/{$message->getMessageId()}";
+                },
+                $messages
+            );
+
+            $telegram->sendMessage([
+                'chat_id' => $chatId,
+                'text' => 'Ссылки на сообщения с ключевыми словами:' . PHP_EOL . implode(PHP_EOL, $links),
+            ]);
+        } else {
+            $telegram->sendMessage([
+                'chat_id' => $chatId,
+                'text' => 'Сообщений с ключевыми словами не найдено.',
+            ]);
+        }
+    } else {
+        $telegram->sendMessage([
+            'chat_id' => $chatId,
+            'text' => 'Пожалуйста, укажите ключевые слова для поиска.',
+        ]);
+    }
+}
